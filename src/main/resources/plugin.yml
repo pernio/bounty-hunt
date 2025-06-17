@@ -1,0 +1,15 @@
+name: BountyHunt
+version: 0.0.1-SNAPSHOT
+main: com.jinzo.BountyHunt
+api-version: 1.16
+folia-supported: true
+commands:
+  bounty:
+    description: Place a bounty on a player
+    usage: /bounty <player> <amount>
+  bountytop:
+    description: View the top bounties
+    usage: /bountytop
+  bountycheck:
+    description: Check your current bounties
+    usage: /bountycheck <player>
