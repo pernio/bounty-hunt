@@ -17,8 +17,12 @@ import java.util.*;
 public class BountyHunt extends JavaPlugin implements Listener, TabExecutor {
 
     private final Map<UUID, Integer> bounties = new HashMap<>();
+    private final Map<UUID, Integer> pendingClaims = new HashMap<>();
     private final Gson gson = new Gson();
     private File dataFile;
+    private final Map<UUID, Long> bountyCooldowns = new HashMap<>();
+    private static final long COOLDOWN_MILLIS = 60_000; // 60 seconds
+    private File logFile;
 
     @Override
     public void onEnable() {
@@ -40,12 +44,22 @@ public class BountyHunt extends JavaPlugin implements Listener, TabExecutor {
             }
         }
 
+        logFile = new File(getDataFolder(), "bounty.log");
+        try {
+            if (!logFile.exists()) {
+                logFile.createNewFile();
+            }
+        } catch (IOException e) {
+            getLogger().warning("Failed to create bounty log file");
+        }
+
         loadBounties();
     }
 
     @Override
     public void onDisable() {
         saveBounties();
+        bountyCooldowns.clear();
     }
 
     @EventHandler
@@ -61,13 +75,29 @@ public class BountyHunt extends JavaPlugin implements Listener, TabExecutor {
         int reward = bounties.remove(deadUUID);
         saveBounties();
 
-        giveGoldReward(killer, reward);
+        // Store pending reward
+        UUID killerId = killer.getUniqueId();
+        pendingClaims.put(killerId, pendingClaims.getOrDefault(killerId, 0) + reward);
+
         killer.sendMessage(ChatColor.GOLD + "You claimed a bounty of " +
-                reward + " gold (" + (reward / 9) + " blocks & " + (reward % 9) + " ingots) for killing " +
-                dead.getName() + "!");
+                reward + " gold for killing " + dead.getName() + "!");
+        killer.sendMessage(ChatColor.YELLOW + "Use /bountyclaim to receive your gold.");
 
         Bukkit.broadcastMessage(ChatColor.RED + dead.getName() + " was killed! " +
                 "Bounty of " + reward + " gold claimed by " + killer.getName() + "!");
+
+        logAction(killer.getName() + " killed " + dead.getName() + " and claimed a bounty of " + reward + " gold.");
+    }
+
+    private void logAction(String message) {
+        String timestamp = new Date().toString();
+        String entry = "[" + timestamp + "] " + message;
+
+        try (FileWriter writer = new FileWriter(logFile, true)) {
+            writer.write(entry + System.lineSeparator());
+        } catch (IOException e) {
+            getLogger().warning("Failed to write to bounty log.");
+        }
     }
 
     private void giveGoldReward(Player player, int amount) {
@@ -208,6 +238,11 @@ public class BountyHunt extends JavaPlugin implements Listener, TabExecutor {
 
         switch (cmd) {
             case "bounty" -> {
+                if (!player.hasPermission("bountyhunt.bounty")) {
+                    player.sendMessage(ChatColor.RED + "You do not have permission to place bounties.");
+                    return true;
+                }
+
                 if (args.length != 2) {
                     player.sendMessage(ChatColor.YELLOW + "Usage: /bounty <player> <amount>");
                     return true;
@@ -237,12 +272,23 @@ public class BountyHunt extends JavaPlugin implements Listener, TabExecutor {
                     return true;
                 }
 
-                if (!takeGold(player, amount)) {
-                    player.sendMessage(ChatColor.RED + "You don't have enough gold ingots or blocks.");
+                long now = System.currentTimeMillis();
+                long last = bountyCooldowns.getOrDefault(player.getUniqueId(), 0L);
+                long timeLeft = COOLDOWN_MILLIS - (now - last);
+
+                if (timeLeft > 0) {
+                    player.sendMessage(ChatColor.RED + "You must wait " + (timeLeft / 1000) + " seconds before placing another bounty.");
                     return true;
                 }
 
+                if (!takeGold(player, amount)) {
+                    player.sendMessage(ChatColor.RED + "You don't have enough gold.");
+                    return true;
+                }
+
+                bountyCooldowns.put(player.getUniqueId(), now);
                 bounties.put(target.getUniqueId(), bounties.getOrDefault(target.getUniqueId(), 0) + amount);
+                logAction(player.getName() + " placed a bounty of " + amount + " gold on " + target.getName());
                 saveBounties();
 
                 Bukkit.broadcastMessage(ChatColor.GOLD + player.getName() + " placed a bounty of " + amount +
@@ -251,6 +297,11 @@ public class BountyHunt extends JavaPlugin implements Listener, TabExecutor {
             }
 
             case "bountytop" -> {
+                if (!player.hasPermission("bountyhunt.bountytop")) {
+                    player.sendMessage(ChatColor.RED + "You do not have permission to view top bounties.");
+                    return true;
+                }
+
                 List<Map.Entry<UUID, Integer>> sorted = bounties.entrySet().stream()
                         .sorted((a, b) -> b.getValue() - a.getValue())
                         .limit(10)
@@ -268,6 +319,11 @@ public class BountyHunt extends JavaPlugin implements Listener, TabExecutor {
             }
 
             case "bountycheck" -> {
+                if (!player.hasPermission("bountyhunt.bountycheck")) {
+                    player.sendMessage(ChatColor.RED + "You do not have permission to check bounties.");
+                    return true;
+                }
+
                 if (args.length != 1) {
                     player.sendMessage(ChatColor.RED + "Usage: /bountycheck <player>");
                     return true;
@@ -282,6 +338,48 @@ public class BountyHunt extends JavaPlugin implements Listener, TabExecutor {
                     player.sendMessage(ChatColor.GOLD + target.getName() + " has a bounty of " +
                             amount + " gold.");
                 }
+                return true;
+            }
+
+            case "bountyclaim" -> {
+                if (!player.hasPermission("bountyhunt.bountyclaim")) {
+                    player.sendMessage(ChatColor.RED + "You do not have permission to claim bounties.");
+                    return true;
+                }
+
+                UUID id = player.getUniqueId();
+                int amount = pendingClaims.getOrDefault(id, 0);
+                if (amount <= 0) {
+                    player.sendMessage(ChatColor.GREEN + "You have no bounty rewards to claim.");
+                    return true;
+                }
+
+                int blocks = amount / 9;
+                int ingots = amount % 9;
+
+                List<ItemStack> rewards = new ArrayList<>();
+                if (blocks > 0) rewards.add(new ItemStack(Material.GOLD_BLOCK, blocks));
+                if (ingots > 0) rewards.add(new ItemStack(Material.GOLD_INGOT, ingots));
+
+                for (ItemStack item : rewards) {
+                    HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(item);
+                    if (!leftover.isEmpty()) {
+                        leftover = player.getEnderChest().addItem(leftover.values().toArray(new ItemStack[0]));
+                    }
+                    for (ItemStack itemLeft : leftover.values()) {
+                        int leftOverAmount = itemLeft.getAmount();
+                        while (leftOverAmount > 0) {
+                            int dropAmount = Math.min(leftOverAmount, itemLeft.getMaxStackSize());
+                            ItemStack dropStack = new ItemStack(itemLeft.getType(), dropAmount);
+                            player.getWorld().dropItemNaturally(player.getLocation(), dropStack);
+                            leftOverAmount -= dropAmount;
+                        }
+                    }
+                }
+
+                logAction(player.getName() + " claimed " + amount + " gold in bounty rewards.");
+                pendingClaims.remove(id);
+                player.sendMessage(ChatColor.GOLD + "You have successfully claimed your bounty reward!");
                 return true;
             }
 
