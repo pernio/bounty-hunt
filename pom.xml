@@ -7,6 +7,7 @@
 	<groupId>com.jinzo</groupId>
 	<artifactId>bounty-hunt</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
+	<packaging>jar</packaging>
 	<name>bounty-hunt</name>
 	<description>Basic plugin to set bounties on players</description>
 
@@ -23,6 +24,10 @@
 		<repository>
 			<id>spigot-repo</id>
 			<url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
+		</repository>
+		<repository>
+			<id>jitpack.io</id>
+			<url>https://jitpack.io</url>
 		</repository>
 	</repositories>
 
@@ -46,20 +51,30 @@
 			<version>5.7.0</version>
 			<scope>test</scope>
 		</dependency>
+		<!-- Vault -->
+		<dependency>
+			<groupId>com.github.MilkBowl</groupId>
+			<artifactId>VaultAPI</artifactId>
+			<version>1.7.1</version>
+			<scope>provided</scope>
+		</dependency>
 	</dependencies>
 
 	<build>
 		<plugins>
+			<!-- Compiler Plugin -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.8.1</version>
 				<configuration>
-					<release>${java.version}</release>
+					<source>${java.version}</source>
+					<target>${java.version}</target>
 					<encoding>${project.build.sourceEncoding}</encoding>
 				</configuration>
 			</plugin>
 
+			<!-- Resources Plugin -->
 			<plugin>
 				<artifactId>maven-resources-plugin</artifactId>
 				<version>3.3.1</version>
@@ -68,15 +83,32 @@
 				</configuration>
 			</plugin>
 
+			<!-- Jar Plugin: build both normal and classifier -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-jar-plugin</artifactId>
 				<version>3.1.0</version>
-				<configuration>
-					<classifier>plugin</classifier>
-					<excludes>
-					</excludes>
-				</configuration>
+				<executions>
+					<!-- Main artifact (needed for install phase) -->
+					<execution>
+						<id>default-jar</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+					</execution>
+					<!-- Plugin classifier jar -->
+					<execution>
+						<id>plugin-jar</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<classifier>plugin</classifier>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>
