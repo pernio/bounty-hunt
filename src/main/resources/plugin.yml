@@ -6,36 +6,22 @@ folia-supported: true
 
 commands:
   bounty:
-    description: Place a bounty on a player
-    usage: /bounty <player> <amount>
-    permission: bountyhunt.bounty
-    permission-message: You do not have permission to use this command.
-  bountytop:
-    description: View the top bounties
-    usage: /bountytop
-    permission: bountyhunt.bountytop
-    permission-message: You do not have permission to view top bounties.
-  bountycheck:
-    description: Check your current bounties
-    usage: /bountycheck <player>
-    permission: bountyhunt.bountycheck
-    permission-message: You do not have permission to check bounties.
-  bountyclaim:
-    description: Claim your earned bounty rewards
-    usage: /bountyclaim
-    permission: bountyhunt.bountyclaim
-    permission-message: You do not have permission to claim bounties.
+    description: Bounty system
+    usage: /bounty <set|check|top|remove>
 
 permissions:
   bountyhunt.bounty:
-    description: Allows the player to place bounties
+    description: Base permission for the bounty command
     default: true
-  bountyhunt.bountytop:
-    description: Allows the player to view top bounties
+  bountyhunt.bounty.set:
+    description: Allows placing bounties
     default: true
-  bountyhunt.bountycheck:
-    description: Allows the player to check a player’s bounty
+  bountyhunt.bounty.check:
+    description: Allows checking bounty on players
     default: true
-  bountyhunt.bountyclaim:
-    description: Allows the player to claim earned bounties
+  bountyhunt.bounty.top:
+    description: Allows viewing top bounties
     default: true
+  bountyhunt.bounty.remove:
+    description: Allows a player to remove a bounty
+    default: op
