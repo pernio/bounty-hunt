@@ -6,16 +6,19 @@ import com.jinzo.utils.BountyManager;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
+import com.jinzo.utils.ConfigManager;
 
 public class BountyHunt extends JavaPlugin {
 
     private static BountyHunt instance;
     private Economy economy;
     private BountyManager bountyManager;
+    private ConfigManager configManager;
 
     @Override
     public void onEnable() {
         instance = this;
+        configManager = new ConfigManager(this);
         saveDefaultConfig();
 
         if (!setupEconomy()) {
@@ -28,8 +31,8 @@ public class BountyHunt extends JavaPlugin {
         bountyManager.loadBounties();
 
         getServer().getPluginManager().registerEvents(new BountyDeathListener(bountyManager), this);
-        getCommand("bounty").setExecutor(new BountyCommand(bountyManager));
-        getCommand("bounty").setTabCompleter(new BountyCommand(bountyManager));
+        getCommand("bounty").setExecutor(new BountyCommand(bountyManager, configManager));
+        getCommand("bounty").setTabCompleter(new BountyCommand(bountyManager, configManager));
     }
 
     @Override

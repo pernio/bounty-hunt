@@ -1,10 +1,7 @@
 package com.jinzo.utils;
 
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
-
-import java.io.File;
 
 public class ConfigManager {
 
@@ -17,14 +14,23 @@ public class ConfigManager {
     }
 
     public void loadConfig() {
-        plugin.saveDefaultConfig();
+        plugin.saveDefaultConfig(); // Creates the config file if it doesn't exist
         this.config = plugin.getConfig();
     }
 
-    public int getCooldown() {
-        return config.getInt("cooldown", 5);
+    public int getBountyTaxPercentage() {
+        return config.getInt("bounty-tax-percentage", 10);
     }
 
-    // Add more getters here if needed
-}
+    public int getBountyCooldownSeconds() {
+        return config.getInt("bounty-cooldown-seconds", 60);
+    }
 
+    public int getBountyMinimumAmount() {
+        return config.getInt("bounty-minimum-amount", 1);
+    }
+
+    public int getBountyMaximumAmount() {
+        return config.getInt("bounty-max-amount", 1_000_000);
+    }
+}

@@ -2,6 +2,7 @@ package com.jinzo.commands;
 
 import com.jinzo.BountyHunt;
 import com.jinzo.utils.BountyManager;
+import com.jinzo.utils.ConfigManager;
 import org.bukkit.*;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
@@ -12,10 +13,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class BountyCommand implements TabExecutor {
 
     private final BountyManager bountyManager;
+    private final ConfigManager configManager;
     private final Map<UUID, Long> cooldowns = new HashMap<>();
 
-    public BountyCommand(BountyManager bountyManager) {
+    public BountyCommand(BountyManager bountyManager, ConfigManager configManager) {
         this.bountyManager = bountyManager;
+        this.configManager = configManager;
     }
 
     @Override
@@ -75,8 +78,8 @@ public class BountyCommand implements TabExecutor {
             return;
         }
 
-        int min = BountyHunt.getInstance().getConfig().getInt("bounty-minimum-amount", 1);
-        int max = BountyHunt.getInstance().getConfig().getInt("bounty-max-amount", 1000000);
+        int min = configManager.getBountyMinimumAmount();
+        int max = configManager.getBountyMaximumAmount();
         if (amount < min || amount > max) {
             player.sendMessage(ChatColor.RED + "Amount must be between " + min + " and " + max);
             return;
@@ -84,18 +87,18 @@ public class BountyCommand implements TabExecutor {
 
         long now = System.currentTimeMillis();
         long last = cooldowns.getOrDefault(player.getUniqueId(), 0L);
-        int cooldown = BountyHunt.getInstance().getConfig().getInt("bounty-cooldown-seconds", 60);
+        int cooldown = configManager.getBountyCooldownSeconds();
         if ((now - last) < cooldown * 1000L) {
             player.sendMessage(ChatColor.RED + "Wait before setting another bounty.");
             return;
         }
 
-        int tax = BountyHunt.getInstance().getConfig().getInt("bounty-tax-amount", 0);
-        int cost = amount + tax;
+        int tax = configManager.getBountyTaxPercentage();
+        int cost = (int) Math.ceil(amount * (1 + tax / 100.0));
 
         if (!bountyManager.getEconomy().has(player, cost)) {
             if (tax > 0) {
-                player.sendMessage(ChatColor.RED + "You need " + cost + " gold (" + tax + "g tax) to place this bounty.");
+                player.sendMessage(ChatColor.RED + "You need " + cost + " gold (" + tax + "% tax) to place this bounty.");
             } else {
                 player.sendMessage(ChatColor.RED + "You need " + cost + " gold to place this bounty.");
             }
