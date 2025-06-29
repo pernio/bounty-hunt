@@ -31,8 +31,8 @@ public class BountyDeathListener implements Listener {
         int reward = bountyManager.claimBounty(targetId);
         bountyManager.getEconomy().depositPlayer(killer, reward);
 
-        killer.sendMessage(ChatColor.GOLD + "You claimed a bounty of " + reward + " gold for killing " + dead.getName() + "!");
-        Bukkit.broadcastMessage(ChatColor.RED + dead.getName() + " was killed! Bounty of " + reward + " gold claimed by " + killer.getName() + "!");
+        killer.sendMessage(ChatColor.YELLOW + "You claimed a bounty of " + reward + " gold for killing " + dead.getName() + "!");
+        Bukkit.broadcastMessage(ChatColor.GOLD + dead.getName() + " was killed! Bounty of " + reward + " gold claimed by " + killer.getName() + "!");
         bountyManager.log(killer.getName() + " killed " + dead.getName() + " and earned " + reward + " gold.");
     }
 }

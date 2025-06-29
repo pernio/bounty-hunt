@@ -1,4 +1,4 @@
 bounty-tax-percentage: 0
 bounty-cooldown-seconds: 60
-bounty-minimum-amount: 0
+bounty-minimum-amount: 1
 bounty-max-amount: 1000000

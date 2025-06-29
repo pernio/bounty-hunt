@@ -2,6 +2,7 @@ package com.jinzo.commands;
 
 import com.jinzo.BountyHunt;
 import com.jinzo.utils.BountyManager;
+import com.jinzo.utils.ConfigManager;
 import org.bukkit.*;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
@@ -12,10 +13,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class BountyCommand implements TabExecutor {
 
     private final BountyManager bountyManager;
+    private final ConfigManager configManager;
     private final Map<UUID, Long> cooldowns = new HashMap<>();
 
-    public BountyCommand(BountyManager bountyManager) {
+    public BountyCommand(BountyManager bountyManager, ConfigManager configManager) {
         this.bountyManager = bountyManager;
+        this.configManager = configManager;
     }
 
     @Override
@@ -34,14 +37,15 @@ public class BountyCommand implements TabExecutor {
             case "set" -> handleSet(player, args);
             case "check" -> handleCheck(player, args);
             case "top" -> handleTop(player);
-            default -> player.sendMessage(ChatColor.RED + "Unknown subcommand. Use: set, check, or top.");
+            case "remove" -> handleRemove(player, args);
+            default -> player.sendMessage(ChatColor.RED + "Unknown subcommand. Use: set, check, top, or remove.");
         }
         return true;
     }
 
     private void handleSet(Player player, String[] args) {
         if (!player.hasPermission("bountyhunt.bounty.set")) {
-            player.sendMessage(ChatColor.RED + "You do not have permission to set bounties.");
+            player.sendMessage(ChatColor.RED + "No permission to execute this command.");
             return;
         }
 
@@ -74,8 +78,8 @@ public class BountyCommand implements TabExecutor {
             return;
         }
 
-        int min = BountyHunt.getInstance().getConfig().getInt("bounty-minimum-amount", 0);
-        int max = BountyHunt.getInstance().getConfig().getInt("bounty-max-amount", 1000000);
+        int min = configManager.getBountyMinimumAmount();
+        int max = configManager.getBountyMaximumAmount();
         if (amount < min || amount > max) {
             player.sendMessage(ChatColor.RED + "Amount must be between " + min + " and " + max);
             return;
@@ -83,18 +87,21 @@ public class BountyCommand implements TabExecutor {
 
         long now = System.currentTimeMillis();
         long last = cooldowns.getOrDefault(player.getUniqueId(), 0L);
-        int cooldown = BountyHunt.getInstance().getConfig().getInt("bounty-cooldown-seconds", 60);
+        int cooldown = configManager.getBountyCooldownSeconds();
         if ((now - last) < cooldown * 1000L) {
             player.sendMessage(ChatColor.RED + "Wait before setting another bounty.");
             return;
         }
 
-        double taxRate = BountyHunt.getInstance().getConfig().getDouble("bounty-tax-percentage", 0);
-        int tax = (int) Math.ceil(amount * taxRate / 100.0);
-        int cost = amount + tax;
+        int tax = configManager.getBountyTaxPercentage();
+        int cost = (int) Math.ceil(amount * (1 + tax / 100.0));
 
         if (!bountyManager.getEconomy().has(player, cost)) {
-            player.sendMessage(ChatColor.RED + "You need " + cost + " gold to place this bounty.");
+            if (tax > 0) {
+                player.sendMessage(ChatColor.RED + "You need " + cost + " gold (" + tax + "% tax) to place this bounty.");
+            } else {
+                player.sendMessage(ChatColor.RED + "You need " + cost + " gold to place this bounty.");
+            }
             return;
         }
 
@@ -108,7 +115,7 @@ public class BountyCommand implements TabExecutor {
 
     private void handleTop(Player player) {
         if (!player.hasPermission("bountyhunt.bounty.top")) {
-            player.sendMessage(ChatColor.RED + "No permission.");
+            player.sendMessage(ChatColor.RED + "No permission to execute this command.");
             return;
         }
 
@@ -125,7 +132,7 @@ public class BountyCommand implements TabExecutor {
 
     private void handleCheck(Player player, String[] args) {
         if (!player.hasPermission("bountyhunt.bounty.check")) {
-            player.sendMessage(ChatColor.RED + "No permission.");
+            player.sendMessage(ChatColor.RED + "No permission to execute this command.");
             return;
         }
 
@@ -137,18 +144,55 @@ public class BountyCommand implements TabExecutor {
         OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
         int bounty = bountyManager.getBounty(target.getUniqueId());
         if (bounty > 0) {
-            player.sendMessage(ChatColor.GOLD + target.getName() + " has a bounty of " + bounty + " gold.");
+            player.sendMessage(ChatColor.GOLD + target.getName() + " has a bounty of " + bounty + " gold");
         } else {
-            player.sendMessage(ChatColor.GREEN + target.getName() + " has no bounty.");
+            player.sendMessage(ChatColor.YELLOW + target.getName() + " has no bounty.");
         }
+    }
+
+    private void handleRemove(Player player, String[] args) {
+        if (!player.hasPermission("bountyhunt.bounty.remove")) {
+            player.sendMessage(ChatColor.RED + "No permission to execute this command.");
+            return;
+        }
+
+        if (args.length != 2) {
+            player.sendMessage(ChatColor.RED + "Usage: /bounty remove <player>");
+            return;
+        }
+
+        OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
+        UUID targetId = target.getUniqueId();
+
+        if (bountyManager.getBounty(targetId) <= 0) {
+            player.sendMessage(ChatColor.YELLOW + target.getName() + " has no bounty to remove.");
+            return;
+        }
+
+        bountyManager.removeBounty(targetId);
+        player.sendMessage(ChatColor.GOLD + "Removed the bounty from " + target.getName() + ".");
+        bountyManager.log(player.getName() + " removed the bounty on " + target.getName());
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length == 1)
-            return Arrays.asList("set", "check", "top");
-        else if (args.length == 2 && (args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("check")))
-            return Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();
+        if (!(sender instanceof Player player)) return Collections.emptyList();
+
+        if (args.length == 1) {
+            List<String> suggestions = new ArrayList<>();
+            if (player.hasPermission("bountyhunt.bounty.set")) suggestions.add("set");
+            if (player.hasPermission("bountyhunt.bounty.check")) suggestions.add("check");
+            if (player.hasPermission("bountyhunt.bounty.top")) suggestions.add("top");
+            if (player.hasPermission("bountyhunt.bounty.remove")) suggestions.add("remove");
+            return suggestions;
+        } else if (args.length == 2) {
+            String sub = args[0].toLowerCase();
+            if ((sub.equals("set") && player.hasPermission("bountyhunt.bounty.set")) ||
+                    (sub.equals("check") && player.hasPermission("bountyhunt.bounty.check")) ||
+                    (sub.equals("remove") && player.hasPermission("bountyhunt.bounty.remove"))) {
+                return Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();
+            }
+        }
         return Collections.emptyList();
     }
 }

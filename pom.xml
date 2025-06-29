@@ -6,7 +6,7 @@
 
 	<groupId>com.jinzo</groupId>
 	<artifactId>bounty-hunt</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>1.0.0</version>
 	<packaging>jar</packaging>
 	<name>bounty-hunt</name>
 	<description>Basic plugin to set bounties on players</description>

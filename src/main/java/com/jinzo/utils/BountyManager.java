@@ -76,6 +76,11 @@ public class BountyManager {
         return amount;
     }
 
+    public void removeBounty(UUID uuid) {
+        bounties.remove(uuid);
+        saveBounties();
+    }
+
     public Economy getEconomy() {
         return economy;
     }
