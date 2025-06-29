@@ -3,6 +3,8 @@ package com.jinzo.utils;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.File;
+
 public class ConfigManager {
 
     private final JavaPlugin plugin;
@@ -14,7 +16,10 @@ public class ConfigManager {
     }
 
     public void loadConfig() {
-        plugin.saveDefaultConfig(); // Creates the config file if it doesn't exist
+        File configFile = new File(plugin.getDataFolder(), "config.yml");
+        if (!configFile.exists()) {
+            plugin.saveDefaultConfig();
+        }
         this.config = plugin.getConfig();
     }
 

@@ -19,7 +19,6 @@ public class BountyHunt extends JavaPlugin {
     public void onEnable() {
         instance = this;
         configManager = new ConfigManager(this);
-        saveDefaultConfig();
 
         if (!setupEconomy()) {
             getLogger().severe("Vault or a compatible economy plugin not found! Disabling.");
@@ -33,6 +32,8 @@ public class BountyHunt extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new BountyDeathListener(bountyManager), this);
         getCommand("bounty").setExecutor(new BountyCommand(bountyManager, configManager));
         getCommand("bounty").setTabCompleter(new BountyCommand(bountyManager, configManager));
+
+        System.out.println("Tax rate: " + configManager.getBountyTaxPercentage() + "%");
     }
 
     @Override
